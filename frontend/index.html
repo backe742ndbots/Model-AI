@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property AI Voice Portal</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-top: 0; }
+        
+        .chat-box { border: 1px solid #ddd; height: 300px; overflow-y: scroll; padding: 15px; border-radius: 8px; margin-bottom: 20px; background: #fafafa; }
+        .message { margin-bottom: 10px; padding: 10px; border-radius: 8px; max-width: 80%; }
+        .user { background: #007bff; color: white; margin-left: auto; text-align: right; }
+        .ai { background: #e9ecef; color: #333; margin-right: auto; }
+        
+        .controls { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        button { padding: 12px 25px; border: none; background: #28a745; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; }
+        
+        .status { font-size: 0.8em; color: #666; margin-top: 10px; text-align: center; }
+        .status.online { color: green; }
+        .status.offline { color: red; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏠 Property AI Portal</h2>
+    
+    <div class="chat-box" id="chatBox">
+        <div class="message ai">Hello! I am your AI assistant. The backend is connected. Ask me anything!</div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="userInput" placeholder="Type your query here (e.g., 'Show flats in Mumbai')..." onkeypress="handleEnter(event)">
+        <button onclick="sendQuery()" id="sendBtn">Send</button>
+    </div>
+    <div class="status" id="statusText">Checking server connection...</div>
+</div>
+
+<script>
+    const API_URL = "http://localhost:8000/query";
+    const HEALTH_URL = "http://localhost:8000/health";
+
+    // 1. Check if Backend is Alive
+    async function checkHealth() {
+        const statusEl = document.getElementById('statusText');
+        try {
+            const res = await fetch(HEALTH_URL);
+            if(res.ok) {
+                statusEl.innerText = "🟢 System Online";
+                statusEl.className = "status online";
+            }
+        } catch (e) {
+            statusEl.innerText = "🔴 System Offline (Is uvicorn running?)";
+            statusEl.className = "status offline";
+        }
+    }
+
+    // 2. Send Message Logic
+    async function sendQuery() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        // Add User Message to Chat
+        addMessage(text, 'user');
+        input.value = '';
+        input.disabled = true;
+        document.getElementById('sendBtn').disabled = true;
+
+        try {
+            // Call the Python API
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+
+            const data = await response.json();
+            
+            // Add AI Response to Chat
+            addMessage(data.reply_text, 'ai');
+
+        } catch (error) {
+            addMessage("❌ Error: Could not reach the API. Is the server running?", 'ai');
+            console.error(error);
+        } finally {
+            input.disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            input.focus();
+        }
+    }
+
+    function addMessage(text, sender) {
+        const box = document.getElementById('chatBox');
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerText = text;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight; // Auto-scroll to bottom
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendQuery();
+    }
+
+    // Run health check on load
+    checkHealth();
+</script>
+
+</body>
+</html>
