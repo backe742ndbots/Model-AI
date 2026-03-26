@@ -154,37 +154,27 @@ async def health_check():
 
 
 # --- 5. Main Query Endpoint ---
-@app.post("/query", response_model=QueryResponse)
-async def process_query(request: QueryRequest):
-    """
-    Receives user text, routes it to AI logic,
-    and returns the response.
-    """
-    print(f"🔹 Received Query: {request.text}")
+@app.post("/query")
+def query_endpoint(payload: dict):
+    user_text = payload.get("text", "").strip()
 
-    try:
-        result = handle_user_query(request.text, limit=5)
+    if not user_text:
+        return {
+            "reply_text": "Please enter a valid query."
+        }
 
-        if result["result_count"] == 0:
-            reply = (
-                "I couldn’t find any exact matches for your request. "
-                "Would you like to broaden the criteria?"
-            )
-        else:
-            reply = (
-                f"I found {result['result_count']} matching properties. "
-                "Here are some good options."
-            )
+    result = handle_user_query(user_text)
 
-        return QueryResponse(
-            status="success",
-            reply_text=reply,
-            data=result
-        )
+    # 🔑 ALWAYS return reply_text for frontend
+    if "reply_text" in result:
+        return result
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+    # fallback for property search responses
+    count = result.get("result_count", 0)
+    return {
+        "reply_text": f"I found {count} properties matching your request.",
+        "data": result
+    }
 
 # --- 6. Entry Point ---
 if __name__ == "__main__":
